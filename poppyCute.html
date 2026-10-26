@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Poppies for Sonal</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="For Sonal">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Young+Serif&display=swap">
+<style>
+/* Layout: a full-screen poppy field at sunrise; a sheet of sealed envelopes slides up over it, and each letter unfolds on top. One deliberate light look. */
+:root {
+  --sky: #f6e3d8;
+  --paper: #fffaf6;
+  --ink: #3a1418;
+  --muted: #8a646a;
+  --poppy: #b3141c;
+  --line: #ecd5cc;
+  --hand: "Caveat", "Segoe Print", cursive;
+  --serif: "Young Serif", Georgia, serif;
+  --ui: -apple-system, system-ui, sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; overflow: hidden; background: var(--sky); color: var(--ink); font-family: var(--serif); }
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: manipulation; }
+
+.note {
+  position: fixed; top: calc(env(safe-area-inset-top, 0px) + 5vh); left: 0; right: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  text-align: center; pointer-events: none; opacity: 0; transition: opacity 1.6s ease;
+}
+.note.show { opacity: 1; }
+.note > div { max-width: 540px; margin: 0 auto; }
+.note h1 { font-family: var(--hand); font-weight: 700; font-size: clamp(2.8rem, 12vw, 4.4rem); color: var(--poppy); margin: 0; line-height: 1; }
+.note p { font-size: clamp(1rem, 4.2vw, 1.25rem); line-height: 1.5; margin: 12px 0 0; text-wrap: balance; }
+.note .from { font-family: var(--hand); font-size: 1.7rem; color: var(--poppy); margin-top: 8px; }
+.note .hint { font-family: var(--ui); font-size: 13px; color: var(--muted); margin-top: 6px; }
+
+.bar {
+  position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;
+  padding: 12px max(16px, env(safe-area-inset-right, 0px)) calc(14px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+}
+.btn {
+  font: 600 16px var(--ui); background: var(--poppy); color: #fff; border: 0; border-radius: 999px;
+  padding: 14px 22px; cursor: pointer; box-shadow: 0 8px 18px -10px #5a0a0e; min-height: 48px;
+}
+.btn.soft { background: rgb(255 250 246 / .92); color: var(--ink); }
+.btn:focus-visible, .envelope:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+
+/* Letters sheet */
+.sheet {
+  position: fixed; inset: 0; z-index: 10; background: rgb(255 250 246 / .9);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  padding: calc(env(safe-area-inset-top, 0px) + 24px) max(16px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 32px) max(16px, env(safe-area-inset-left, 0px));
+  animation: rise .4s ease;
+}
+.sheet-inner { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+.sheet-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.sheet h2 { font-family: var(--serif); font-weight: 400; font-size: clamp(1.9rem, 7vw, 2.6rem); margin: 0; line-height: 1.1; }
+.sheet .sub { font-family: var(--ui); color: var(--muted); margin: 6px 0 0; font-size: 15px; }
+.x { font: 600 15px var(--ui); background: transparent; border: 2px solid var(--line); color: var(--ink); border-radius: 999px; padding: 8px 16px; cursor: pointer; flex: none; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: 16px; }
+.envelope {
+  position: relative; aspect-ratio: 4 / 3; max-width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 0;
+  background: var(--paper); color: var(--ink); cursor: pointer; overflow: hidden; font: inherit; text-align: left;
+  box-shadow: 0 8px 18px -14px var(--ink); transition: transform .2s ease;
+}
+.envelope:active { transform: scale(.97); }
+.envelope::before { content: ""; position: absolute; inset: 0 0 auto; height: 52%; background: #f3d9cf; clip-path: polygon(0 0, 100% 0, 50% 100%); }
+.seal { position: absolute; left: 50%; top: 52%; transform: translate(-50%, -50%); width: 34px; height: 34px; border-radius: 50%; background: var(--poppy); display: grid; place-items: center; box-shadow: inset 0 -3px 0 rgb(0 0 0 / .2); }
+.seal::after { content: ""; width: 9px; height: 9px; border-radius: 50%; background: #1a0707; }
+.envelope.read .seal { background: #c9a9ae; }
+.envelope .when { position: absolute; left: 10px; right: 10px; bottom: 8px; font-family: var(--hand); font-size: 1.3rem; line-height: 1.05; }
+
+/* Letter */
+.overlay {
+  position: fixed; inset: 0; z-index: 20; background: rgb(40 12 16 / .5); display: grid; place-items: center;
+  padding: calc(env(safe-area-inset-top, 0px) + 16px) max(16px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 16px) max(16px, env(safe-area-inset-left, 0px));
+}
+.letter {
+  background: var(--paper); width: 100%; max-width: 500px; max-height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  border-radius: 4px; padding: 30px 24px 24px; display: flex; flex-direction: column; gap: 12px; animation: unfold .45s ease;
+  background-image: repeating-linear-gradient(transparent 0 33px, var(--line) 33px 34px); background-position: 0 64px;
+}
+.label { font: 700 12px var(--ui); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.letter h3 { font-family: var(--serif); font-weight: 400; font-size: 1.45rem; margin: 0; text-wrap: balance; }
+.letter .body { font-family: var(--hand); font-size: 1.55rem; line-height: 34px; white-space: pre-line; margin: 0; }
+.letter .sign { font-family: var(--hand); font-size: 1.6rem; color: var(--poppy); text-align: right; margin: 0; }
+
+/* Saved picture */
+.photo { display: flex; flex-direction: column; gap: 12px; align-items: center; width: 100%; max-width: 420px; max-height: 100%; }
+.photo img { width: 100%; max-height: 70vh; object-fit: contain; border-radius: 12px; box-shadow: 0 20px 40px -20px #000; -webkit-touch-callout: default; }
+.photo p { font: 15px var(--ui); color: #fff; text-align: center; margin: 0; }
+
+@keyframes rise { from { transform: translateY(30px); opacity: 0 } }
+@keyframes unfold { from { transform: scaleY(.3) translateY(40px); opacity: 0 } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<canvas id="c" aria-label="A field of poppies growing at sunrise"></canvas>
+
+<div class="note" id="note"><div>
+  <h1 id="to"></h1>
+  <p id="msg"></p>
+  <div class="from" id="from"></div>
+  <div class="hint">Tap the field to grow more poppies</div>
+</div></div>
+
+<div class="bar">
+  <button class="btn" id="openLetters" type="button">Open your letters</button>
+  <button class="btn soft" id="save" type="button">Save picture</button>
+</div>
+
+<section class="sheet" id="sheet" hidden aria-label="Letters">
+  <div class="sheet-inner">
+    <div class="sheet-head">
+      <div>
+        <h2>Open when…</h2>
+        <p class="sub">Pick the one that fits right now. Only open it when it's true.</p>
+      </div>
+      <button class="x" id="closeSheet" type="button">Back to poppies</button>
+    </div>
+    <div class="grid" id="grid"></div>
+  </div>
+</section>
+
+<div class="overlay" id="letterView" hidden>
+  <article class="letter" role="dialog" aria-modal="true" aria-labelledby="lt">
+    <span class="label">Open when</span>
+    <h3 id="lt"></h3>
+    <p class="body" id="lb"></p>
+    <p class="sign" id="ls"></p>
+    <button class="btn" id="closeLetter" type="button">Fold it back up</button>
+  </article>
+</div>
+
+<div class="overlay" id="photoView" hidden>
+  <div class="photo">
+    <img id="photo" alt="Poppy field picture with a note for Sonal">
+    <p>Press and hold the picture, then tap <b>Save to Photos</b>.</p>
+    <button class="btn soft" id="closePhoto" type="button">Done</button>
+  </div>
+</div>
+
+<script>
+/* ============ EDIT THESE ============ */
+const CONFIG = {
+  herName: "Sonal",
+  yourName: "Hitesh",
+  message: "I couldn't bring you a real field of poppies, so I grew you one in code. These ones will never wilt.",
+  letters: [
+    { when: "you miss me", text: "I miss you too. Probably more, but let's not argue about it.\nClose your eyes and go back to the mela with me.\nI couldn't stop looking straight into your eyes, and I fell for your smile all over again. Watching you have so much fun, I enjoyed every single moment of it.\nI'm thinking about that day right now too.\nNow call me." },
+    { when: "you've had a bad day", text: "Hey, Sonal.\nWhatever happened today doesn't get to decide how amazing you are.\nGet comfy, get a snack, put on \"Dil Ka Jo Haal Hai\", and tell me everything. I'm on your side, always." },
+    { when: "you can't sleep", text: "Count these instead of sheep:\n1. The first time we met, on 8 September\n2. That time we found out we're both deaf in one ear. Clearly made for each other\n3. Every good morning text I'll ever send you\nGoodnight, my favourite person." },
+    { when: "we had a fight", text: "I'm sorry.\nEven when we argue, we're on the same team. You matter more to me than being right.\nThis letter is the hug I couldn't give you yet." },
+    { when: "you need a laugh", text: "Remember our late-night drive in Delhi, when we ran into the police and I couldn't say a single word? I just stood there, frozen in one spot like a statue. My dumbass could not do anything about it.\nYeah. I'm laughing again just writing this.\nAlso, you're cute when you laugh. That's the real reason I wrote this one." },
+    { when: "you doubt yourself", text: "Here's what I see when I look at you:\nSomeone smart, kind, brave, and stubborn in the best way.\nYou've done hard things before. You'll do this one too. I believe in you, completely." },
+    { when: "you need a hug", text: "Wrap your arms around yourself. Tighter.\nThat's from me.\nThe real one is waiting for you next time I see you, and it's going to be a long one." },
+    { when: "you're happy", text: "Good. That's my favourite version of the world.\nTake a screenshot of this moment and send it to me, because I want to be happy with you." },
+    { when: "you just need to know I love you", text: "I love you, Sonal.\nThat's it. That's the letter." }
+  ]
+};
+/* ==================================== */
+
+const $ = id => document.getElementById(id);
+$("to").textContent = "For " + CONFIG.herName;
+$("msg").textContent = CONFIG.message;
+$("from").textContent = "— " + CONFIG.yourName;
+setTimeout(() => $("note").classList.add("show"), 2200);
+
+/* ---------- Letters ---------- */
+let opened = new Set();
+try { opened = new Set(JSON.parse(localStorage.getItem("sonal-opened") || "[]")); } catch {}
+let lastEnv = null;
+CONFIG.letters.forEach((l, i) => {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "envelope" + (opened.has(i) ? " read" : "");
+  b.innerHTML = `<span class="seal" aria-hidden="true"></span><span class="when"></span>`;
+  b.querySelector(".when").textContent = "Open when " + l.when;
+  b.addEventListener("click", () => openLetter(i, b));
+  $("grid").append(b);
+});
+function openLetter(i, btn) {
+  lastEnv = btn;
+  const l = CONFIG.letters[i];
+  $("lt").textContent = l.when.charAt(0).toUpperCase() + l.when.slice(1);
+  $("lb").textContent = l.text;
+  $("ls").textContent = "Love, " + CONFIG.yourName;
+  $("letterView").hidden = false;
+  $("letterView").querySelector(".letter").scrollTop = 0;
+  $("closeLetter").focus({ preventScroll: true });
+  opened.add(i); btn.classList.add("read");
+  try { localStorage.setItem("sonal-opened", JSON.stringify([...opened])); } catch {}
+}
+function closeLetter() { $("letterView").hidden = true; lastEnv?.focus({ preventScroll: true }); }
+$("openLetters").addEventListener("click", () => { $("sheet").hidden = false; });
+$("closeSheet").addEventListener("click", () => { $("sheet").hidden = true; });
+$("closeLetter").addEventListener("click", closeLetter);
+$("letterView").addEventListener("click", e => { if (e.target.id === "letterView") closeLetter(); });
+$("closePhoto").addEventListener("click", () => { $("photoView").hidden = true; });
+addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  if (!$("photoView").hidden) $("photoView").hidden = true;
+  else if (!$("letterView").hidden) closeLetter();
+  else $("sheet").hidden = true;
+});
+
+/* ---------- Poppy field ---------- */
+const cv = $("c"), ctx = cv.getContext("2d");
+let W, H, DPR, ground, unit, blades = [];
+const rand = (a, b) => a + Math.random() * (b - a);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const easeOutBack = x => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+const easeOut = x => 1 - Math.pow(1 - x, 3);
+
+const PALETTES = [
+  { dark: "#7d0b10", mid: "#d81e1e", light: "#ff5a3c" },   // classic red poppy
+  { dark: "#9a2a05", mid: "#f0601a", light: "#ffa04a" },   // California orange
+  { dark: "#8c2a4a", mid: "#e8708f", light: "#ffc2cf" }    // pink
+];
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = innerWidth; H = innerHeight;
+  cv.width = W * DPR; cv.height = H * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ground = H * 0.9;   // leaves room for the buttons and the iPhone home bar
+  unit = clamp(Math.min(W, H) / 700, 0.7, 1.3);
+  blades = Array.from({ length: Math.floor(W / 4) }, () => ({ x: rand(0, W), h: rand(10, 34) * unit, p: rand(0, 6.28), c: Math.random() < .5 ? "#6f8a55" : "#829c63" }));
+}
+resize();
+addEventListener("resize", resize);
+
+function makePetal(len, seed) {
+  const pts = [], N = 26, spread = rand(0.85, 1.0);
+  for (let k = 0; k <= N; k++) {
+    const phi = (k / N - 0.5) * 2 * spread;
+    const r = len * (0.84 + 0.12 * Math.cos(phi * 1.3) + 0.05 * Math.sin(phi * 9 + seed));
+    pts.push([Math.cos(phi) * r, Math.sin(phi) * r * 1.05]);
+  }
+  return pts;
+}
+
+const t0 = performance.now();
+const now = () => (performance.now() - t0) / 1000;
+
+function makePoppy(fx, delay = 0) {
+  const len = rand(36, 56) * unit;
+  const rot = rand(0, Math.PI);
+  return {
+    fx, delay, born: now(),
+    h: rand(0.22, 0.45) * H, lean: rand(-40, 40) * unit, phase: rand(0, 6.28),
+    len, tilt: rand(0.78, 0.95),
+    pal: Math.random() < .7 ? PALETTES[0] : Math.random() < .7 ? PALETTES[1] : PALETTES[2],
+    petals: [0, 1, 2, 3].map(i => ({ a: rot + i * Math.PI / 2 + rand(-.15, .15), pts: makePetal(len * (i % 2 ? 0.92 : 1.05), rand(0, 9)) })),
+    stamens: Array.from({ length: 34 }, () => [rand(0, 6.28), rand(0.17, 0.3) * len, rand(1, 2.1) * unit])
+  };
+}
+
+let poppies = [];
+(function seedField() {
+  const n = Math.round(clamp(W / 80, 6, 15));
+  const order = [...Array(n).keys()].sort(() => Math.random() - .5);
+  poppies = order.map((i, k) => makePoppy((i + 0.5) / n + rand(-.3, .3) / n, 0.4 + k * 0.28));
+  poppies.sort((a, b) => b.h - a.h); // tall ones behind
+})();
+
+let floating = [];
+function makeFloat(x = rand(-50, W), y = rand(-40, H * .4)) {
+  return { x, y, vx: rand(.2, .8), vy: rand(.3, .9), r: rand(0, 6.28), vr: rand(-.03, .03), s: rand(5, 9) * unit, c: Math.random() < .75 ? "#d81e1e" : "#f0601a", a: 1 };
+}
+cv.addEventListener("pointerdown", e => {
+  const p = makePoppy(e.clientX / W, 0);
+  p.h = clamp(ground - e.clientY, H * 0.1, H * 0.6);
+  poppies.push(p);
+  for (let i = 0; i < 5; i++) floating.push(makeFloat(e.clientX, e.clientY));
+});
+
+function drawLeaf(x, y, ang, size) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+  ctx.beginPath(); ctx.moveTo(0, 0);
+  const N = 7;
+  for (let i = 1; i <= N; i++) { const u = i / N; ctx.lineTo(u * size, -Math.sin(u * Math.PI) * size * 0.22 * (i % 2 ? 1 : .6)); }
+  for (let i = N - 1; i >= 0; i--) { const u = i / N; ctx.lineTo(u * size, Math.sin(u * Math.PI) * size * 0.22 * (i % 2 ? 1 : .6)); }
+  ctx.fillStyle = "#6c8752"; ctx.fill();
+  ctx.restore();
+}
+
+function drawHead(p, x, y, open) {
+  const { len, pal } = p;
+  if (open < 0.6) {   // closed bud, fading as the flower opens
+    ctx.save(); ctx.translate(x, y); ctx.rotate(0.5);
+    ctx.globalAlpha = 1 - open / 0.6;
+    ctx.beginPath(); ctx.ellipse(0, 0, len * 0.2, len * 0.32, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "#7c9160"; ctx.fill();
+    ctx.restore();
+  }
+  if (open <= 0) return;
+  const s = easeOutBack(open);
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s * p.tilt);
+  [0, 2, 1, 3].forEach((i, k) => {
+    const pe = p.petals[i];
+    ctx.save(); ctx.rotate(pe.a);
+    ctx.beginPath(); ctx.moveTo(0, 0); pe.pts.forEach(([a, b]) => ctx.lineTo(a, b)); ctx.closePath();
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, len);
+    g.addColorStop(0, "#140606"); g.addColorStop(0.2, "#1d0707");     // the dark blotch at a poppy's heart
+    g.addColorStop(0.3, pal.dark); g.addColorStop(0.62, pal.mid); g.addColorStop(1, pal.light);
+    ctx.fillStyle = g; ctx.fill();
+    if (k < 2) { ctx.fillStyle = "rgba(40,0,0,.14)"; ctx.fill(); }
+    ctx.strokeStyle = "rgba(70,0,0,.16)"; ctx.lineWidth = 1;
+    for (const j of [-.35, 0, .35]) { ctx.beginPath(); ctx.moveTo(len * .3, j * len * .2); ctx.quadraticCurveTo(len * .6, j * len * .45, len * .85, j * len * .7); ctx.stroke(); }
+    ctx.restore();
+  });
+  ctx.fillStyle = "#151010";   // stamens and seed pod
+  p.stamens.forEach(([a, r, sz]) => { ctx.beginPath(); ctx.arc(Math.cos(a) * r, Math.sin(a) * r, sz, 0, 7); ctx.fill(); });
+  ctx.beginPath(); ctx.arc(0, 0, len * 0.15, 0, 7); ctx.fillStyle = "#56653f"; ctx.fill();
+  ctx.strokeStyle = "#2c3520"; ctx.lineWidth = 1.2;
+  for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * len * .14, Math.sin(a) * len * .14); ctx.stroke(); }
+  ctx.restore();
+}
+
+function drawScene(t) {
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, "#cfe0e8"); sky.addColorStop(0.55, "#f6e3d8"); sky.addColorStop(1, "#f0cdbd");
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+  const sun = ctx.createRadialGradient(W * .8, H * .25, 0, W * .8, H * .25, Math.max(W, H) * .45);
+  sun.addColorStop(0, "rgba(255,236,200,.75)"); sun.addColorStop(1, "rgba(255,236,200,0)");
+  ctx.fillStyle = sun; ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = "rgba(216,30,30,.22)";   // distant poppies on the horizon
+  for (let i = 0; i < 70; i++) { const x = (i * 97.3) % W, y = ground - 20 * unit - ((i * 37) % 30) * unit; ctx.beginPath(); ctx.arc(x, y, 2.5 * unit, 0, 7); ctx.fill(); }
+
+  const field = ctx.createLinearGradient(0, ground - 40 * unit, 0, H);
+  field.addColorStop(0, "#9bb07c"); field.addColorStop(1, "#5f7a4d");
+  ctx.fillStyle = field; ctx.fillRect(0, ground - 14 * unit, W, H);
+
+  poppies.forEach(p => {
+    const age = t - p.born - p.delay;
+    if (age <= 0) return;
+    const g = easeOut(clamp(age / 1.7));
+    const open = clamp((age - 1.4) / 1.3);
+    const sway = Math.sin(t * 0.9 + p.phase) * 9 * unit;
+    const bx = p.fx * W, by = ground;
+    const hx = bx + (p.lean + sway) * g, hy = by - p.h * g;
+    ctx.strokeStyle = "#6f8a55"; ctx.lineWidth = 2.6 * unit; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(bx, by); ctx.quadraticCurveTo(bx + p.lean * 0.15, by - p.h * g * 0.55, hx, hy); ctx.stroke();
+    drawLeaf(bx, by - 4, -1.1 - p.lean / 200, 46 * unit * g);
+    drawLeaf(bx, by - 10, -2.1 - p.lean / 200, 38 * unit * g);
+    drawHead(p, hx, hy, open);
+  });
+
+  const lift = H - ground;
+  blades.forEach(b => {
+    const sw = Math.sin(t * 1.2 + b.p) * 4;
+    ctx.strokeStyle = b.c; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(b.x, H); ctx.quadraticCurveTo(b.x, H - b.h * .6 - lift, b.x + sw, H - b.h - lift); ctx.stroke();
+  });
+
+  if (t > 3 && Math.random() < 0.025 && floating.length < 18) floating.push(makeFloat());
+  floating.forEach(f => {
+    f.x += f.vx + Math.sin(t + f.r) * .4; f.y += f.vy; f.r += f.vr;
+    if (f.y > ground) f.a -= .02;
+    ctx.save(); ctx.globalAlpha = clamp(f.a); ctx.translate(f.x, f.y); ctx.rotate(f.r);
+    ctx.beginPath(); ctx.ellipse(0, 0, f.s, f.s * .65, 0, 0, 7); ctx.fillStyle = f.c; ctx.fill();
+    ctx.restore();
+  });
+  floating = floating.filter(f => f.a > 0 && f.x < W + 40);
+}
+
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function frame() { drawScene(reduce ? 99 : now()); if (!reduce) requestAnimationFrame(frame); }
+frame();
+if (reduce) $("note").classList.add("show");
+
+/* ---------- Save picture (shown as an image so iPhone can Save to Photos) ---------- */
+$("save").addEventListener("click", async () => {
+  try { await document.fonts.ready; } catch {}
+  const out = document.createElement("canvas");
+  out.width = cv.width; out.height = cv.height;
+  const o = out.getContext("2d");
+  o.drawImage(cv, 0, 0);
+  o.scale(DPR, DPR);
+  o.textAlign = "center"; o.fillStyle = "#b3141c";
+  const cx = W / 2, big = clamp(W * 0.12, 44, 66), top = H * 0.06;
+  o.font = `700 ${big}px Caveat, "Segoe Print", cursive`;
+  o.fillText("For " + CONFIG.herName, cx, top + big);
+  o.fillStyle = "#3a1418";
+  const fs = clamp(W * 0.042, 15, 20);
+  o.font = `${fs}px "Young Serif", Georgia, serif`;
+  const lines = [], maxW = Math.min(520, W - 40);
+  let line = "";
+  CONFIG.message.split(" ").forEach(w => { const test = line ? line + " " + w : w; if (o.measureText(test).width > maxW) { lines.push(line); line = w; } else line = test; });
+  lines.push(line);
+  let y = top + big + fs * 1.9;
+  lines.forEach(l => { o.fillText(l, cx, y); y += fs * 1.5; });
+  o.fillStyle = "#b3141c"; o.font = `27px Caveat, "Segoe Print", cursive`;
+  o.fillText("— " + CONFIG.yourName, cx, y + 14);
+  $("photo").src = out.toDataURL("image/png");
+  $("photoView").hidden = false;
+});
+</script>
+
+</body>
+</html>
